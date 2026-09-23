@@ -1362,7 +1362,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 24),
                                   child: Center(
-                                    child: _catalogFooter(context, remote: false),
+                                    child: _catalogFooter(
+                                      context,
+                                      remote: false,
+                                    ),
                                   ),
                                 ),
                               ),
