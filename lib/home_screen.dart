@@ -24,6 +24,7 @@ import 'settings_screen.dart';
 import 'profiles_screen.dart';
 import 'search_input.dart';
 import 'source_gate_dialog.dart';
+import 'source_gate_taps.dart';
 import 'sources_screen.dart';
 import 'batch_download_screen.dart';
 import 'batch_downloads.dart';
@@ -69,9 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _updateNotice = false;
   bool _selectionMode = false;
   bool _showRecommendations = false;
-  int _recentTaps = 0;
+  final _recentTaps = RepeatTapGate();
   String _sourceSignature = '';
-
   List<SourceGroup> get _sourceGroups {
     final groups = SourceGroup.fromSources(widget.store.sources);
     return [
@@ -686,15 +686,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 连点「最近观看」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
   void _onNavSelected(int tab) {
-    if (tab == 2 && _tab == 2) {
-      _recentTaps++;
-      if (_recentTaps >= 6) {
-        _recentTaps = 0;
+    if (tab == 2) {
+      if (_recentTaps.register(tab)) {
         _openSourceGate();
         return;
       }
     } else {
-      _recentTaps = 0;
+      _recentTaps.reset();
     }
     _changeTab(tab);
   }

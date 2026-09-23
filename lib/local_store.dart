@@ -191,8 +191,8 @@ class LocalStore extends ChangeNotifier {
   Future<void> enableSourceGate(String pin) => _queue(() async {
     _requireAdmin();
     final value = pin.trim();
-    if (!RegExp(r'^\d{4,12}$').hasMatch(value)) {
-      throw StateError('密码需要 4 至 12 位数字');
+    if (!RegExp(r'^\d{3,12}$').hasMatch(value)) {
+      throw StateError('密码需要 3 至 12 位数字');
     }
     final salt = randomProfileToken();
     final hash = await hashProfilePin(value, salt);

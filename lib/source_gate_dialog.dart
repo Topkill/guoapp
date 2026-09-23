@@ -97,7 +97,7 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: '设置密码（4 至 12 位数字）',
+                    labelText: '设置密码（3 至 12 位数字）',
                   ),
                 ),
                 const SizedBox(height: 12),
