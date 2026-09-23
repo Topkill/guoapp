@@ -396,6 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _source = SourceSite.byId(widget.store.source);
     _allSources = widget.store.catalogView.allSources;
     _browser = CatalogBrowser(widget.repository);
+    _scroll.addListener(_maybeLoadMore);
     _updater = LibraryUpdater(
       widget.repository,
       widget.store,
@@ -422,9 +423,52 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_browser.cancel());
     unawaited(widget.repository.cancelSuggestions());
     _debounce?.cancel();
+    _scroll.removeListener(_maybeLoadMore);
     _search.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// 滚动接近底部时自动翻页（TVBox 影视壳式体验），无需手动点“加载更多”。
+  /// 失败过的页不自动重试，避免滚动到底时反复打无效请求。
+  void _maybeLoadMore() {
+    if (!mounted || !_scroll.hasClients) return;
+    if (_loading || _loadingMore || !_hasMore || _failedMore) return;
+    if (_showRecommendations) return;
+    final position = _scroll.position;
+    if (!position.hasContentDimensions) return;
+    if (position.pixels < position.maxScrollExtent - 400) return;
+    unawaited(_load(more: true));
+  }
+
+  /// 目录底部状态：加载中 / 失败重试 / 自动加载中 / 已到底。
+  /// 自动翻页由 [_maybeLoadMore] 驱动，这里只在失败时给出可点的重试入口。
+  Widget _catalogFooter({required bool remote}) {
+    if (_loadingMore) {
+      return const CircularProgressIndicator();
+    }
+    if (_failedMore) {
+      if (remote) {
+        return RemoteButton(
+          label: '加载失败，重试',
+          icon: Icons.refresh,
+          onPressed: () => _load(more: true),
+        );
+      }
+      return OutlinedButton.icon(
+        onPressed: () => _load(more: true),
+        icon: const Icon(Icons.refresh),
+        label: const Text('加载失败，重试'),
+      );
+    }
+    if (_hasMore) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return const Text('已经看到这里的全部剧集');
   }
 
   void _metadataChanged() {
@@ -1265,7 +1309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ))
                           ? () => _load(more: true)
                           : null,
-                      action: '加载更多',
+                      action: '重试',
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
@@ -1279,15 +1323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             footer: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
                               child: Center(
-                                child: _loadingMore
-                                    ? const CircularProgressIndicator()
-                                    : _hasMore
-                                    ? RemoteButton(
-                                        label: '加载更多',
-                                        icon: Icons.expand_more,
-                                        onPressed: () => _load(more: true),
-                                      )
-                                    : const Text('已经看到这里的全部剧集'),
+                                child: _catalogFooter(remote: true),
                               ),
                             ),
                           );
@@ -1323,25 +1359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 24),
                                   child: Center(
-                                    child: _loadingMore
-                                        ? const CircularProgressIndicator()
-                                        : _hasMore
-                                        ? OutlinedButton.icon(
-                                            onPressed: () => _load(more: true),
-                                            icon: const Icon(
-                                              Icons.expand_more_rounded,
-                                            ),
-                                            label: const Text('加载更多'),
-                                          )
-                                        : Text(
-                                            '已经看到这里的全部剧集',
-                                            style: TextStyle(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                              fontSize: 12,
-                                            ),
-                                          ),
+                                    child: _catalogFooter(remote: false),
                                   ),
                                 ),
                               ),

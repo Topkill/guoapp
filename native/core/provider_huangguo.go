@@ -1215,6 +1215,14 @@ func mapStringSlice(m map[string]any, keys ...string) []string {
 			}
 		case []any:
 			for _, item := range x {
+				if row, ok := item.(map[string]any); ok {
+					// 上游 tags/categoryTags 可能是对象数组（如 [{name:"奇幻",custom:true}]），
+					// 直接 fmt.Sprint 会打印成 "map[custom:true name:奇幻]" 这种 Go 内部格式。
+					if name := mapString(row, "name", "title", "label", "tag"); name != "" {
+						add(name)
+					}
+					continue
+				}
 				add(fmt.Sprint(item))
 			}
 		}
