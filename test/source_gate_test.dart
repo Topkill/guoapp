@@ -139,63 +139,61 @@ void main() {
     }
   }
 
-  testWidgets(
-    'the gate dialog offers enabling, unlocking and locking',
-    (tester) async {
-      final store = await create();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showSourceGateDialog(context, store),
-                child: const Text('打开'),
-              ),
+  testWidgets('the gate dialog offers enabling, unlocking and locking', (
+    tester,
+  ) async {
+    final store = await create();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showSourceGateDialog(context, store),
+              child: const Text('打开'),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      // 未启用时给用户「启用密码锁」的选择。
-      await tester.tap(find.text('打开'));
-      await settle(tester);
-      expect(find.text('站源密码锁'), findsOneWidget);
-      expect(find.text('启用密码锁'), findsOneWidget);
-      expect(find.text('解锁'), findsNothing);
+    // 未启用时给用户「启用密码锁」的选择。
+    await tester.tap(find.text('打开'));
+    await settle(tester);
+    expect(find.text('站源密码锁'), findsOneWidget);
+    expect(find.text('启用密码锁'), findsOneWidget);
+    expect(find.text('解锁'), findsNothing);
 
-      await tester.enterText(find.byType(TextField).first, '666');
-      await tester.enterText(find.byType(TextField).last, '666');
-      await tester.tap(find.text('启用密码锁'));
-      await settle(tester);
-      expect(store.sourceGateEnabled, isTrue);
-      expect(store.sourcesUnlocked, isTrue);
+    await tester.enterText(find.byType(TextField).first, '666');
+    await tester.enterText(find.byType(TextField).last, '666');
+    await tester.tap(find.text('启用密码锁'));
+    await settle(tester);
+    expect(store.sourceGateEnabled, isTrue);
+    expect(store.sourcesUnlocked, isTrue);
 
-      // 已启用且已解锁时提供「重新锁定」与「关闭密码功能」。
-      await tester.tap(find.text('打开'));
-      await settle(tester);
-      expect(find.text('重新锁定'), findsOneWidget);
-      expect(find.text('关闭密码功能'), findsOneWidget);
-      await tester.tap(find.text('重新锁定'));
-      await settle(tester);
-      expect(store.sourcesUnlocked, isFalse);
+    // 已启用且已解锁时提供「重新锁定」与「关闭密码功能」。
+    await tester.tap(find.text('打开'));
+    await settle(tester);
+    expect(find.text('重新锁定'), findsOneWidget);
+    expect(find.text('关闭密码功能'), findsOneWidget);
+    await tester.tap(find.text('重新锁定'));
+    await settle(tester);
+    expect(store.sourcesUnlocked, isFalse);
 
-      // 锁定后要求输入密码才能解锁。
-      await tester.tap(find.text('打开'));
-      await settle(tester);
-      expect(find.text('解锁'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).first, '666');
-      await tester.tap(find.text('解锁'));
-      await settle(tester);
-      expect(store.sourcesUnlocked, isTrue);
+    // 锁定后要求输入密码才能解锁。
+    await tester.tap(find.text('打开'));
+    await settle(tester);
+    expect(find.text('解锁'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, '666');
+    await tester.tap(find.text('解锁'));
+    await settle(tester);
+    expect(store.sourcesUnlocked, isTrue);
 
-      // 仍可关闭密码功能，恢复全部站源可见。
-      await tester.tap(find.text('打开'));
-      await settle(tester);
-      await tester.tap(find.text('关闭密码功能'));
-      await settle(tester);
-      expect(store.sourceGateEnabled, isFalse);
-      expect(store.sourcesUnlocked, isTrue);
-    },
-    timeout: const Timeout(Duration(seconds: 60)),
-  );
+    // 仍可关闭密码功能，恢复全部站源可见。
+    await tester.tap(find.text('打开'));
+    await settle(tester);
+    await tester.tap(find.text('关闭密码功能'));
+    await settle(tester);
+    expect(store.sourceGateEnabled, isFalse);
+    expect(store.sourcesUnlocked, isTrue);
+  }, timeout: const Timeout(Duration(seconds: 60)));
 }
