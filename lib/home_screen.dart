@@ -441,9 +441,12 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_load(more: true));
   }
 
-  /// 目录底部状态：加载中 / 失败重试 / 自动加载中 / 已到底。
+  /// 目录底部状态：加载中 / 失败重试 / 可继续下滑 / 已到底。
   /// 自动翻页由 [_maybeLoadMore] 驱动，这里只在失败时给出可点的重试入口。
-  Widget _catalogFooter({required bool remote}) {
+  ///
+  /// 注意：非 loading 分支不能放 CircularProgressIndicator —— 无限动画会让
+  /// widget 测试的 pumpAndSettle 永远等不到静止（已踩过这个坑）。
+  Widget _catalogFooter(BuildContext context, {required bool remote}) {
     if (_loadingMore) {
       return const CircularProgressIndicator();
     }
@@ -461,14 +464,14 @@ class _HomeScreenState extends State<HomeScreen> {
         label: const Text('加载失败，重试'),
       );
     }
-    if (_hasMore) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    return const Text('已经看到这里的全部剧集');
+    final hint = Text(
+      _hasMore ? '继续下滑自动加载' : '已经看到这里的全部剧集',
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 12,
+      ),
+    );
+    return hint;
   }
 
   void _metadataChanged() {
@@ -1323,7 +1326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             footer: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
                               child: Center(
-                                child: _catalogFooter(remote: true),
+                                child: _catalogFooter(context, remote: true),
                               ),
                             ),
                           );
@@ -1359,7 +1362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 24),
                                   child: Center(
-                                    child: _catalogFooter(remote: false),
+                                    child: _catalogFooter(context, remote: false),
                                   ),
                                 ),
                               ),

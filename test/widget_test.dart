@@ -110,15 +110,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('测试短剧'), findsOneWidget);
     expect(repository.requests, isEmpty);
-    await tester.scrollUntilVisible(
-      find.text('加载更多'),
-      200,
-      scrollable: find.descendant(
-        of: find.byType(CustomScrollView),
-        matching: find.byType(Scrollable),
-      ),
+    // 目录页为滚动自动翻页（TVBox 影视壳式）：滚到底部即触发下一页，无需点按钮。
+    final scrollable = find.descendant(
+      of: find.byType(CustomScrollView),
+      matching: find.byType(Scrollable),
     );
-    await tester.tap(find.text('加载更多'));
+    await tester.drag(scrollable, const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(repository.pages, [4]);
     await tester.tap(find.byTooltip('更新当前站源'));
