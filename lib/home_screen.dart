@@ -23,6 +23,7 @@ import 'vip_icon.dart';
 import 'settings_screen.dart';
 import 'profiles_screen.dart';
 import 'search_input.dart';
+import 'source_gate_dialog.dart';
 import 'sources_screen.dart';
 import 'batch_download_screen.dart';
 import 'batch_downloads.dart';
@@ -68,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _updateNotice = false;
   bool _selectionMode = false;
   bool _showRecommendations = false;
+  int _recentTaps = 0;
+  String _sourceSignature = '';
 
   List<SourceGroup> get _sourceGroups {
     final groups = SourceGroup.fromSources(widget.store.sources);
@@ -154,6 +157,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _updateChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// 密码锁切换后可见站源会变，这里把当前站源归一化到仍然可见的站源。
+  void _sourcesChanged() {
+    if (!mounted) return;
+    final visible = widget.store.sources;
+    final signature = visible.map((site) => site.id).join(',');
+    if (signature == _sourceSignature) return;
+    final wasEmpty = _sourceSignature.isEmpty;
+    _sourceSignature = signature;
+    if (visible.isEmpty) {
+      setState(() {
+        _items = [];
+        _hasMore = false;
+        _loading = false;
+        _loadingMore = false;
+      });
+      return;
+    }
+    final allowed = visible.map((site) => site.id).toSet();
+    if (!wasEmpty &&
+        allowed.contains(_source.id) &&
+        _source.id == widget.store.source) {
+      return;
+    }
+    _changeSource(SourceSite.byId(widget.store.source));
   }
 
   void _catalogUpdated(String source) {
@@ -395,6 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _source = SourceSite.byId(widget.store.source);
     _allSources = widget.store.catalogView.allSources;
+    _sourceSignature = widget.store.sources.map((site) => site.id).join(',');
     _browser = CatalogBrowser(widget.repository);
     _scroll.addListener(_maybeLoadMore);
     _updater = LibraryUpdater(
@@ -403,6 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onCatalogChanged: _catalogUpdated,
     )..addListener(_updateChanged);
     _updater.startWatching();
+    widget.store.addListener(_sourcesChanged);
     widget.repository.catalogUpdates.addListener(_metadataChanged);
     if (widget.store.sources.isNotEmpty) {
       _load(useCache: true);
@@ -417,6 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _updater.removeListener(_updateChanged);
     _updater.dispose();
     _cacheRefreshTimer?.cancel();
+    widget.store.removeListener(_sourcesChanged);
     widget.repository.catalogUpdates.removeListener(_metadataChanged);
     _generation++;
     _categoryGeneration++;
@@ -651,6 +683,26 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectionMode = false;
     _selectedDramas.clear();
   });
+
+  /// 连点「最近观看」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
+  void _onNavSelected(int tab) {
+    if (tab == 2 && _tab == 2) {
+      _recentTaps++;
+      if (_recentTaps >= 6) {
+        _recentTaps = 0;
+        _openSourceGate();
+        return;
+      }
+    } else {
+      _recentTaps = 0;
+    }
+    _changeTab(tab);
+  }
+
+  void _openSourceGate() {
+    _pauseCatalog();
+    unawaited(showSourceGateDialog(context, widget.store));
+  }
 
   void _cancelSelection() => setState(() {
     _selectionMode = false;
@@ -1008,7 +1060,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 icon: entry.$2.$1,
                                 selected: _tab == entry.$1,
                                 autofocus: entry.$1 == 0,
-                                onPressed: () => _changeTab(entry.$1),
+                                onPressed: () => _onNavSelected(entry.$1),
                               ),
                             ),
                         ],
@@ -1019,7 +1071,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ] else if (desktop) ...[
                   NavigationRail(
                     selectedIndex: _tab,
-                    onDestinationSelected: _changeTab,
+                    onDestinationSelected: _onNavSelected,
                     labelType: NavigationRailLabelType.all,
                     groupAlignment: -.8,
                     destinations: [
@@ -1085,7 +1137,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ? _selectionBar()
               : AppBottomNavigation(
                   selectedIndex: _tab,
-                  onDestinationSelected: _changeTab,
+                  onDestinationSelected: _onNavSelected,
                   destinations: [
                     NavigationDestination(
                       icon: Icon(Icons.explore_outlined),

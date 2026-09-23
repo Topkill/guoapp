@@ -284,7 +284,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
   late final _name = TextEditingController(text: widget.profile?.name ?? '');
   final _pin = TextEditingController(), _confirm = TextEditingController();
   late final _sources =
-      (widget.profile?.sources ?? SourceSite.values.map((s) => s.id).toList())
+      (widget.profile?.sources ??
+              widget.store.sources.map((s) => s.id).toList())
           .toSet();
   late bool _download = widget.profile?.download ?? true;
   bool _clearPin = false, _busy = false;
@@ -390,7 +391,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
             const SizedBox(height: 20),
             if (widget.profile?.admin != true) ...[
               Text('允许访问的站源', style: Theme.of(context).textTheme.titleMedium),
-              for (final source in SourceSite.values)
+              for (final source in widget.store.sources)
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,

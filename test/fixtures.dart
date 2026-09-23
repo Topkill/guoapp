@@ -1,5 +1,20 @@
 import 'package:duanju_app/core_bridge.dart';
+import 'package:duanju_app/local_profiles.dart';
+import 'package:duanju_app/local_store.dart';
 import 'package:duanju_app/models.dart';
+
+/// 站源密码锁测试夹具：为非管理员会话预先写入可解锁的密码锁配置。
+const gateSalt = '0123456789abcdef0123456789abcdef';
+const gatePin = '666666';
+
+Future<Map<String, Object>> gatePreferences() async => {
+  'sourceGateEnabled': true,
+  'sourceGateSalt': gateSalt,
+  'sourceGateHash': await hashProfilePin(gatePin, gateSalt),
+};
+
+/// 解锁默认隐藏的站源，供需要访问全部站源的用例复用。
+Future<void> unlockGate(LocalStore store) => store.unlockSources(gatePin);
 
 class FixtureRepository extends AppRepository {
   int detailCalls = 0;

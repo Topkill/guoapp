@@ -68,6 +68,8 @@ void main() {
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final store = LocalStore(await SharedPreferences.getInstance());
+      // 管理员默认可见全部站源；显式启用密码锁以覆盖解锁后的站源范围。
+      await store.enableSourceGate('666666');
       final repository = SourceFixtureRepository()
         ..pending = Completer<SourceStatus>();
       await tester.pumpWidget(
