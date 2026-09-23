@@ -1,4 +1,5 @@
 import 'package:duanju_app/core_bridge.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:duanju_app/local_profiles.dart';
 import 'package:duanju_app/local_store.dart';
 import 'package:duanju_app/models.dart';
@@ -7,10 +8,24 @@ import 'package:duanju_app/models.dart';
 const gateSalt = '0123456789abcdef0123456789abcdef';
 const gatePin = '666666';
 
+/// 测试用 pin 哈希：与 [hashProfilePin] 同格式（64 位十六进制），但不用 isolate。
+/// flutter test 的 fake async 环境下 [Isolate.run] 永不完成，会让用例挂到超时。
+Future<String> testPinHasher(String pin, String salt) async {
+  var hash = 0;
+  for (final unit in '$salt|$pin'.codeUnits) {
+    hash = (hash * 31 + unit) & 0xffffffff;
+  }
+  return List.filled(8, hash.toRadixString(16).padLeft(8, '0')).join();
+}
+
+/// 构造注入测试哈希的 [LocalStore]。
+LocalStore testStore(SharedPreferences preferences) =>
+    LocalStore(preferences, pinHasher: testPinHasher);
+
 Future<Map<String, Object>> gatePreferences() async => {
   'sourceGateEnabled': true,
   'sourceGateSalt': gateSalt,
-  'sourceGateHash': await hashProfilePin(gatePin, gateSalt),
+  'sourceGateHash': await testPinHasher(gatePin, gateSalt),
 };
 
 /// 解锁默认隐藏的站源，供需要访问全部站源的用例复用。

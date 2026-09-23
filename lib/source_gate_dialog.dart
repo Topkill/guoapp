@@ -78,6 +78,7 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
       animation: store,
       builder: (context, _) {
         final enabled = store.sourceGateEnabled;
+        final admin = store.profile.admin;
         return AlertDialog(
           title: const Text('站源密码锁'),
           content: Column(
@@ -91,22 +92,26 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
                   '外的站源将默认隐藏，输入密码后才显示。',
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _pin,
-                  autofocus: true,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '设置密码（3 至 12 位数字）',
+                if (!admin)
+                  const Text('只有管理员用户可以启用或关闭密码功能。')
+                else ...[
+                  TextField(
+                    controller: _pin,
+                    autofocus: true,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '设置密码（3 至 12 位数字）',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _confirm,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '再次输入密码'),
-                ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _confirm,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: '再次输入密码'),
+                  ),
+                ],
               ] else if (!store.sourcesUnlocked) ...[
                 const Text('隐藏的站源已锁定，输入密码后显示。'),
                 const SizedBox(height: 16),
@@ -138,7 +143,7 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
               onPressed: _busy ? null : () => Navigator.pop(context),
               child: const Text('取消'),
             ),
-            if (enabled && store.sourcesUnlocked)
+            if (enabled && store.sourcesUnlocked && admin)
               TextButton(
                 onPressed: _busy ? null : () => _run(store.disableSourceGate),
                 child: const Text('关闭密码功能'),
@@ -153,7 +158,7 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
                 onPressed: _busy ? null : _unlock,
                 child: Text(_busy ? '正在验证…' : '解锁'),
               ),
-            if (!enabled)
+            if (!enabled && admin)
               FilledButton(
                 onPressed: _busy ? null : _enable,
                 child: Text(_busy ? '正在保存…' : '启用密码锁'),

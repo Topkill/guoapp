@@ -15,11 +15,16 @@ import 'lan_sync_models.dart';
 part 'local_store_sync.dart';
 
 class LocalStore extends ChangeNotifier {
-  LocalStore(this.preferences) {
+  /// [pinHasher] 可注入，便于测试替换掉默认的 isolate 哈希实现。
+  LocalStore(
+    this.preferences, {
+    Future<String> Function(String, String)? pinHasher,
+  }) : _pinHasher = pinHasher ?? hashProfilePin {
     _initialize();
   }
 
   final SharedPreferences preferences;
+  final Future<String> Function(String pin, String salt) _pinHasher;
   LocalSnapshot? _snapshot;
   LanDocument? _lanDocumentCache;
   int _lanRevision = 0;
@@ -39,6 +44,7 @@ class LocalStore extends ChangeNotifier {
   int _failures = 0;
   bool _sourcesUnlocked = false;
   bool _gateEnabled = false;
+  bool _gateOff = false;
   String _gateSalt = '';
   String _gateHash = '';
   DateTime _retryAfter = DateTime(2000);
@@ -121,13 +127,13 @@ class LocalStore extends ChangeNotifier {
       !locked &&
       SourceSite.isAvailable(source) &&
       profile.allows(source) &&
-      (_sourcesUnlocked || SourceSite.isPrimary(source));
+      (_gateOff || _sourcesUnlocked || SourceSite.isPrimary(source));
   List<SourceSite> get sources => SourceSite.visibleValues(
-    unlocked: _sourcesUnlocked,
+    unlocked: _gateOff || _sourcesUnlocked,
   ).where((site) => allowsSource(site.id)).toList();
 
   /// 默认隐藏的站源是否已解锁。解锁状态只在本次运行内有效，重启后恢复隐藏。
-  bool get sourcesUnlocked => _sourcesUnlocked;
+  bool get sourcesUnlocked => _gateOff || _sourcesUnlocked;
 
   /// 是否已启用站源密码锁。
   bool get sourceGateEnabled => _gateEnabled;
@@ -136,6 +142,7 @@ class LocalStore extends ChangeNotifier {
 
   void _loadSourceGate() {
     final enabled = _bool('sourceGateEnabled') ?? false;
+    final off = _bool('sourceGateOff') ?? false;
     final salt = _string('sourceGateSalt') ?? '';
     final hash = _string('sourceGateHash') ?? '';
     final valid =
@@ -143,16 +150,17 @@ class LocalStore extends ChangeNotifier {
         RegExp(r'^[a-f0-9]{32}$').hasMatch(salt) &&
         RegExp(r'^[a-f0-9]{64}$').hasMatch(hash);
     _gateEnabled = valid;
+    _gateOff = !valid && off;
     _gateSalt = valid ? salt : '';
     _gateHash = valid ? hash : '';
-    _sourcesUnlocked = !valid;
+    _sourcesUnlocked = false;
   }
 
   Future<void> _checkSourcePin(String pin) async {
     if (DateTime.now().isBefore(_retryAfter)) {
       throw StateError('密码输入过于频繁，请稍后再试');
     }
-    final actual = await hashProfilePin(pin, _gateSalt);
+    final actual = await _pinHasher(pin, _gateSalt);
     var difference = actual.length ^ _gateHash.length;
     for (var i = 0; i < actual.length && i < _gateHash.length; i++) {
       difference |= actual.codeUnitAt(i) ^ _gateHash.codeUnitAt(i);
@@ -195,31 +203,35 @@ class LocalStore extends ChangeNotifier {
       throw StateError('密码需要 3 至 12 位数字');
     }
     final salt = randomProfileToken();
-    final hash = await hashProfilePin(value, salt);
+    final hash = await _pinHasher(value, salt);
     await _commit({
       'sourceGateEnabled': true,
+      'sourceGateOff': false,
       'sourceGateSalt': salt,
       'sourceGateHash': hash,
     });
     _gateEnabled = true;
+    _gateOff = false;
     _gateSalt = salt;
     _gateHash = hash;
     _sourcesUnlocked = true;
     _notify();
   });
 
-  /// 关闭密码锁，恢复全部站源可见。
+  /// 关闭密码功能，恢复全部站源可见。
   Future<void> disableSourceGate() => _queue(() async {
     _requireAdmin();
     await _commit({
       'sourceGateEnabled': false,
+      'sourceGateOff': true,
       'sourceGateSalt': '',
       'sourceGateHash': '',
     });
     _gateEnabled = false;
+    _gateOff = true;
     _gateSalt = '';
     _gateHash = '';
-    _sourcesUnlocked = true;
+    _sourcesUnlocked = false;
     _notify();
   });
 
@@ -781,7 +793,7 @@ class LocalStore extends ChangeNotifier {
           throw StateError('密码需要 6 至 128 个字符');
         }
         salt = randomProfileToken();
-        hash = await hashProfilePin(pin, salt);
+        hash = await _pinHasher(pin, salt);
       }
     }
     _requireAdmin();

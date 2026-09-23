@@ -67,7 +67,7 @@ void main() {
     'source update prevents duplicate submits and can stop without losing cache',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final store = LocalStore(await SharedPreferences.getInstance());
+      final store = testStore(await SharedPreferences.getInstance());
       // 管理员默认可见全部站源；显式启用密码锁以覆盖解锁后的站源范围。
       await store.enableSourceGate('666666');
       final repository = SourceFixtureRepository()
@@ -118,7 +118,7 @@ void main() {
         ]),
         'activeProfile': 'viewer',
       });
-      final store = LocalStore(await SharedPreferences.getInstance());
+      final store = testStore(await SharedPreferences.getInstance());
       final repository = SourceFixtureRepository();
       await tester.pumpWidget(
         MaterialApp(
@@ -141,7 +141,7 @@ void main() {
       'source diagnostics remain collapsed through $operation polling and completion',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
-        final store = LocalStore(await SharedPreferences.getInstance());
+        final store = testStore(await SharedPreferences.getInstance());
         SourceStatus status(String state, {bool running = false}) =>
             SourceStatus.fromJson({
               'source': 'hongguo',
@@ -244,7 +244,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       SharedPreferences.setMockInitialValues({});
-      final store = LocalStore(await SharedPreferences.getInstance());
+      final store = testStore(await SharedPreferences.getInstance());
       final repository = SourceFixtureRepository();
       repository.statuses['hongguo'] = SourceStatus.fromJson({
         'source': 'hongguo',

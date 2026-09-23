@@ -32,6 +32,7 @@ class LocalSnapshot {
     'autoExport',
     'exportPosters',
     'sourceGateEnabled',
+    'sourceGateOff',
     'sourceGateSalt',
     'sourceGateHash',
   };
@@ -78,6 +79,7 @@ class LocalSnapshot {
         'autoExport',
         'exportPosters',
         'sourceGateEnabled',
+        'sourceGateOff',
       }.contains(entry.key.split('.').last);
       if (!owns(entry.key) ||
           (boolean ? entry.value is! bool : entry.value is! String)) {
