@@ -8,7 +8,8 @@ class SourceSite {
   final String name;
   final String description;
   bool get onlineSearch => id == 'hongguo' || pagedSearch;
-  bool get pagedSearch => id == 'huangju' || id == 'yeguo' || id == 'dsd';
+  bool get pagedSearch =>
+      id == 'huangju' || id == 'yeguo' || id == 'dsd' || id == 'sorani';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -24,12 +25,14 @@ class SourceSite {
 
   static const hongguo = SourceSite('hongguo', '红果', '短剧 · 漫剧 · AI 剧');
   static const dsd = SourceSite('dsd', '帝果', '分类视频 · 在线搜索');
+  static const sorani = SourceSite('sorani', '青空', '番剧 · 剧场动画 · 特摄');
   static const knownValues = [
     hongguo,
     SourceSite('huangdou', '黄豆', '精选短剧'),
     SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
     SourceSite('yeguo', '野果', '分类短剧 · 在线搜索'),
     dsd,
+    sorani,
     SourceSite('huangguo-video', '黄果视频', '视频剧集'),
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
     SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),
@@ -40,6 +43,7 @@ class SourceSite {
     SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
     SourceSite('yeguo', '野果', '分类短剧 · 在线搜索'),
     dsd,
+    sorani,
     SourceSite('huangguo-video', '黄果视频', '视频剧集'),
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
     SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),

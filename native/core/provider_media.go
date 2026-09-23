@@ -39,6 +39,8 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.YeguoURL, yeguoBaseURL
 	case sourceDSD:
 		configured, fallback = d.cfg.DSDURL, dsdBaseURL
+	case sourceSorani:
+		configured, fallback = d.cfg.SoraniURL, soraniSiteBaseURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
@@ -66,6 +68,8 @@ func providerSourceForURL(raw string) string {
 		return sourceYeguo
 	case host == "dsd.com.se" || host == "www.dsd.com.se":
 		return sourceDSD
+	case host == "sorani.net" || host == "www.sorani.net" || host == "api.sorani.cc" || host == "sorani.cc":
+		return sourceSorani
 	default:
 		return ""
 	}
@@ -117,6 +121,9 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceDSD {
 		return d.resolveDSDMedia(ctx, task)
+	}
+	if chapter.Source == sourceSorani {
+		return d.resolveSoraniMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
