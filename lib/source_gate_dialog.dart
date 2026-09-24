@@ -71,6 +71,10 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> _disable() async {
+    await _run(widget.store.disableSourceGate);
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
@@ -78,6 +82,7 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
       animation: store,
       builder: (context, _) {
         final enabled = store.sourceGateEnabled;
+        final gateOff = store.sourceGateOff;
         final admin = store.profile.admin;
         return AlertDialog(
           title: const Text('站源密码锁'),
@@ -85,7 +90,35 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!enabled) ...[
+              if (!enabled && gateOff) ...[
+                Text(
+                  '当前未使用密码，已显示全部站源。'
+                  '${admin ? '可重新设置密码以隐藏敏感站源。' : ''}',
+                ),
+                if (admin) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _pin,
+                    autofocus: true,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '设置密码（3 至 12 位数字）',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _confirm,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: '再次输入密码'),
+                  ),
+                ] else
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('只有管理员用户可以设置密码。'),
+                  ),
+              ] else if (!enabled) ...[
                 Text(
                   '启用后，除'
                   '${SourceSite.primaryValues.map((site) => site.name).join('、')}'
@@ -157,6 +190,12 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
               FilledButton(
                 onPressed: _busy ? null : _unlock,
                 child: Text(_busy ? '正在验证…' : '解锁'),
+              ),
+            // 未启用密码时，管理员可直接选择「不使用密码」关闭隐藏、显示全部站源。
+            if (!enabled && !gateOff && admin)
+              TextButton(
+                onPressed: _busy ? null : _disable,
+                child: const Text('不使用密码'),
               ),
             if (!enabled && admin)
               FilledButton(

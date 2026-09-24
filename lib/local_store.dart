@@ -140,6 +140,9 @@ class LocalStore extends ChangeNotifier {
 
   bool get sourceGateConfigured => _gateSalt.isNotEmpty && _gateHash.isNotEmpty;
 
+  /// 当前是否处于「不使用密码、显示全部站源」状态。
+  bool get sourceGateOff => _gateOff;
+
   void _loadSourceGate() {
     final enabled = _bool('sourceGateEnabled') ?? false;
     final off = _bool('sourceGateOff') ?? false;

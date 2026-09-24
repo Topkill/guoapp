@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'app_layout.dart';
 import 'app_bottom_navigation.dart';
+import 'app_build.dart';
 import 'core_bridge.dart';
 import 'catalog_filters.dart';
 import 'catalog_browser.dart';
@@ -686,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 连点「最近观看」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
   void _onNavSelected(int tab) {
-    if (tab == 2) {
+    if (allSourcesEnabled && tab == 2) {
       if (_recentTaps.register(tab)) {
         _openSourceGate();
         return;
