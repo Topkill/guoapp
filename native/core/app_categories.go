@@ -65,6 +65,8 @@ func validNativeCategory(source, category string) bool {
 		return webProviderNumericID.MatchString(category)
 	case sourceSorani:
 		return validSoraniCategory(category)
+	case sourceGuipian:
+		return validGuipianCategory(category)
 	}
 	return false
 }
@@ -127,6 +129,8 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		}
 	case sourceSorani:
 		all = append(all, d.fetchSoraniCategories()...)
+	case sourceGuipian:
+		all = append(all, d.fetchGuipianCategories()...)
 	default:
 		return nil, errors.New("请选择有效站源")
 	}

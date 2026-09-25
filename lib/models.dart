@@ -9,7 +9,7 @@ class SourceSite {
   final String description;
   bool get onlineSearch => id == 'hongguo' || pagedSearch;
   bool get pagedSearch =>
-      id == 'huangju' || id == 'yeguo' || id == 'dsd' || id == 'sorani';
+      id == 'huangju' || id == 'yeguo' || id == 'dsd' || id == 'sorani' || id == 'guipian';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -26,9 +26,10 @@ class SourceSite {
   static const hongguo = SourceSite('hongguo', '红果', '短剧 · 漫剧 · AI 剧');
   static const dsd = SourceSite('dsd', '帝果', '分类视频 · 在线搜索');
   static const sorani = SourceSite('sorani', '青空', '番剧 · 剧场动画 · 特摄');
+  static const guipian = SourceSite('guipian', '鬼片', '鬼片 · 电视剧 · 动漫');
 
-  /// 默认可见的站源：红果、青空次元。
-  static const primaryValues = [hongguo, sorani];
+  /// 默认可见的站源：红果、鬼片网、青空次元。
+  static const primaryValues = [hongguo, guipian, sorani];
 
   /// 敏感站源：默认隐藏，输入解锁密码后才显示。
   static const restrictedValues = [
