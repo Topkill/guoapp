@@ -301,16 +301,22 @@ func guipianPickPlaylist(body string) (string, []Chapter, error) {
 			continue
 		}
 		seen[anchor] = true
-		slidePattern := regexp.MustCompile(fmt.Sprintf(
-			`(?is)<div class="playlist-slide[^"]*" id="%s"(.*?)(?:<div class="playlist-slide|</section>)`,
-			regexp.QuoteMeta(anchor)))
-		slide := slidePattern.FindStringSubmatch(body)
-		if len(slide) < 2 {
+		// Go RE2 不支持 lookahead，改用显式字符串截断：从本容器标记之后
+		// 截到下一个 playlist-slide 或 </section>，避免消耗式分组吃掉下一条线路的开头。
+		marker := fmt.Sprintf(`id="%s"`, anchor)
+		start := strings.Index(body, marker)
+		if start < 0 {
 			continue
+		}
+		segment := body[start+len(marker):]
+		if end := strings.Index(segment, `<div class="playlist-slide`); end >= 0 {
+			segment = segment[:end]
+		} else if end := strings.Index(segment, `</section>`); end >= 0 {
+			segment = segment[:end]
 		}
 		var chapters []Chapter
 		seenPath := map[string]bool{}
-		for index, ep := range reGuipianEpisode.FindAllStringSubmatch(slide[1], -1) {
+		for index, ep := range reGuipianEpisode.FindAllStringSubmatch(segment, -1) {
 			epTitle := guipianClean(ep[1])
 			href := strings.TrimSpace(ep[2])
 			if href == "" {

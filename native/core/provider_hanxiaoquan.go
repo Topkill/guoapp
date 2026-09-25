@@ -251,14 +251,17 @@ func hanxiaoquanPickPlaylist(body string) (string, []Chapter, error) {
 	for _, lineID := range lineIDs {
 		segment := body
 		if lineID != "" {
-			start := strings.Index(body, `id="playlist`+lineID+`"`)
+			marker := `id="playlist` + lineID + `"`
+			start := strings.Index(body, marker)
 			if start < 0 {
 				continue
 			}
-			segment = body[start:]
-			if end := strings.Index(segment, `id="playlist`); end > 0 {
-				segment = segment[end:]
-			} else if end := strings.Index(segment, `class="module-footer"`); end > 0 {
+			// 从本容器标记之后开始找下一个 playlist 容器或列表结束标记，
+			// 避免匹配到容器自身导致截断失败（进而把后续线路的分集一并算入）。
+			segment = body[start+len(marker):]
+			if end := strings.Index(segment, `id="playlist`); end >= 0 {
+				segment = segment[:end]
+			} else if end := strings.Index(segment, `class="module-footer"`); end >= 0 {
 				segment = segment[:end]
 			}
 		}
