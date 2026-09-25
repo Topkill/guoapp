@@ -9,7 +9,11 @@ class SourceSite {
   final String description;
   bool get onlineSearch => id == 'hongguo' || pagedSearch;
   bool get pagedSearch =>
-      id == 'huangju' || id == 'yeguo' || id == 'dsd' || id == 'sorani' || id == 'guipian';
+      id == 'huangju' ||
+      id == 'yeguo' ||
+      id == 'dsd' ||
+      id == 'sorani' ||
+      id == 'guipian';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
