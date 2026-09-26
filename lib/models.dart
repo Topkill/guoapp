@@ -10,7 +10,6 @@ class SourceSite {
   bool get onlineSearch => id == 'hongguo' || pagedSearch;
   bool get pagedSearch =>
       id == 'huangju' ||
-      id == 'yeguo' ||
       id == 'dsd' ||
       id == 'sorani' ||
       id == 'guipian' ||
@@ -43,9 +42,7 @@ class SourceSite {
 
   /// 敏感站源：默认隐藏，输入解锁密码后才显示。
   static const restrictedValues = [
-    SourceSite('huangdou', '黄豆', '精选短剧'),
     SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
-    SourceSite('yeguo', '野果', '分类短剧 · 在线搜索'),
     dsd,
     SourceSite('huangguo-video', '黄果视频', '视频剧集'),
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),

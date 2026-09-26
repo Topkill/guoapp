@@ -135,13 +135,6 @@ func (engine *nativeEngine) sourceStatusLocked(source string) nativeSourceStatus
 	warning := engine.storageWarningLocked()
 	stage := record.Stage
 	unknownVIP := 0
-	if source == sourceHuangdou {
-		for _, drama := range engine.catalogs[source] {
-			if drama.VIP == nil {
-				unknownVIP++
-			}
-		}
-	}
 	if warning != "" && !record.Running && stage == "已完成" {
 		stage = "等待保存"
 	}
@@ -174,7 +167,7 @@ func (engine *nativeEngine) startSourceTask(source, operation string, drama nati
 	default:
 		return nativeSourceStatus{}, errors.New("无效的站源操作")
 	}
-	if operation == "vipMetadata" && source != sourceHuangdou {
+	if operation == "vipMetadata" {
 		return nativeSourceStatus{}, errors.New("当前站源不需要补齐 VIP 资料")
 	}
 	if drama.ID != "" && (!nativeDramaAvailable(drama) || sourceFromDramaID(drama.ID) != source) {
@@ -328,7 +321,7 @@ func (engine *nativeEngine) updateSource(ctx context.Context, source, operation 
 		if time.Now().Before(record.MetadataRetryAt[drama.ID]) {
 			continue
 		}
-		if operation == "metadata" || operation == "vipMetadata" || drama.Episodes <= 0 || drama.Description == "" || source == sourceHuangdou && drama.VIP == nil {
+		if operation == "metadata" || operation == "vipMetadata" || drama.Episodes <= 0 || drama.Description == "" {
 			pending = append(pending, drama)
 		}
 	}
@@ -349,7 +342,7 @@ func (engine *nativeEngine) updateSource(ctx context.Context, source, operation 
 			if nativeNeedsExtraMetadata(fresh) {
 				fresh, metadataErr = engine.nativeExtraMetadata(ctx, fresh)
 			}
-			unknownVIP = source == sourceHuangdou && fresh.VIP == nil
+			unknownVIP = false
 			engine.mu.Lock()
 			engine.catalogs[source] = mergeNativeCatalog(engine.catalogs[source], []nativeDrama{fresh})
 			for key, items := range engine.catalogs {

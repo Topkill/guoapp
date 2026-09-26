@@ -134,8 +134,8 @@ func TestNativeCoverMetadataRejectsOtherDramaAndKeepsCurrentHost(t *testing.T) {
 	if _, err := parseHuangguoSortDetail(strings.ReplaceAll(body, "/detail/100/", "/detail/101/"), "https://huangguoai.com/detail/100/", patch); err == nil {
 		t.Fatal("another drama's cover accepted")
 	}
-	d := &Downloader{providerHosts: map[string]string{sourceHuangdou: "https://mirror.example.test"}}
-	if got := nativeCoverReferer(d, sourceHuangdou, "https://new-cover.example.test/synthetic.img"); got != "https://mirror.example.test/home" {
+	d := &Downloader{providerHosts: map[string]string{sourceHuangju: "https://mirror.example.test"}}
+	if got := nativeCoverReferer(d, sourceHuangju, "https://new-cover.example.test/synthetic.img"); got != "https://mirror.example.test/" {
 		t.Fatal("cover referer ignored active source mirror", got)
 	}
 }

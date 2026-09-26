@@ -24,12 +24,9 @@ type Config struct {
 	InsecureTLS      bool
 	HuangguoAIURL    string
 	HuangguoVideoURL string
-	HuangdouURL      string
 	HongguoURL       string
 	HuangjuURL       string
 	HuangjuAPIURL    string
-	YeguoURL         string
-	YeguoAPIURL      string
 	DSDURL           string
 	SoraniURL        string
 	SoraniAPIURL     string
@@ -45,32 +42,28 @@ type Config struct {
 }
 
 type Downloader struct {
-	rankings              rankingCache
-	cfg                   Config
-	client                *http.Client
-	huangdouDetails       map[string]huangdouDetailEntry
-	huangdouDetailPending map[string]*huangdouDetailCall
-	providerMu            sync.Mutex
-	providerHosts         map[string]string
-	limiter               *requestLimiter
-	proxyRouter           *proxyRouter
-	hongguoOnce           sync.Once
-	hongguo               *hongguoAppClient
-	huangjuOnce           sync.Once
-	huangju               *huangjuAPIClient
-	yeguoOnce             sync.Once
-	yeguo                 *yeguoAPIClient
-	soraniOnce            sync.Once
-	sorani                *soraniAPIClient
-	dsdCatalog            dsdCatalogState
-	diagnostics           *diagnosticLog
-	apiMu                 sync.Mutex
-	apiBase               string
-	apiFailures           map[string]time.Time
-	legacyOnce            sync.Once
-	legacy                *legacyAPIClient
-	previewMu             sync.Mutex
-	previewSessions       map[string]*huangguoPreviewSession
+	rankings        rankingCache
+	cfg             Config
+	client          *http.Client
+	providerMu      sync.Mutex
+	providerHosts   map[string]string
+	limiter         *requestLimiter
+	proxyRouter     *proxyRouter
+	hongguoOnce     sync.Once
+	hongguo         *hongguoAppClient
+	huangjuOnce     sync.Once
+	huangju         *huangjuAPIClient
+	soraniOnce      sync.Once
+	sorani          *soraniAPIClient
+	dsdCatalog      dsdCatalogState
+	diagnostics     *diagnosticLog
+	apiMu           sync.Mutex
+	apiBase         string
+	apiFailures     map[string]time.Time
+	legacyOnce      sync.Once
+	legacy          *legacyAPIClient
+	previewMu       sync.Mutex
+	previewSessions map[string]*huangguoPreviewSession
 }
 
 func defaultConfig() Config { return Config{MaxPagesPerSort: 50, PageSize: 30, Retries: 2} }
@@ -571,15 +564,8 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		result.HasMore = more
 		return result, nil
 	}
-	if query != "" && (source == sourceYeguo || source == sourceDSD) {
-		var items []Drama
-		var more bool
-		var err error
-		if source == sourceYeguo {
-			items, more, err = d.fetchYeguoCatalogPage(ctx, page, "", query)
-		} else {
-			items, more, err = d.fetchDSDCatalogPage(ctx, page, "", query)
-		}
+	if query != "" && source == sourceDSD {
+		items, more, err := d.fetchDSDCatalogPage(ctx, page, "", query)
 		if err != nil {
 			return result, err
 		}
@@ -640,25 +626,10 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 			items, totalPages, err = d.fetchHongguoCategoryPage(ctx, "real-drama?page="+strconv.Itoa(page), "真人剧")
 			result.HasMore = page < totalPages
 		}
-	case sourceHuangdou:
-		client := newHuangdouAPIClient(d)
-		var decoded any
-		err = client.call(ctx, "/drama/list", map[string]any{"page": strconv.Itoa(page), "page_size": "30"}, &decoded)
-		if err == nil {
-			rows := huangdouList(decoded)
-			for _, row := range rows {
-				if drama := huangdouDramaFromMap(row); drama.ID != "" {
-					items = append(items, drama)
-				}
-			}
-			result.HasMore = len(rows) >= 30
-		}
 	case sourceHuangguoAI:
 		items, result.HasMore, err = d.fetchHuangguoAICatalogPage(ctx, page, category)
 	case sourceHuangju:
 		items, result.HasMore, err = d.fetchHuangjuCatalogPage(ctx, page, category, "")
-	case sourceYeguo:
-		items, result.HasMore, err = d.fetchYeguoCatalogPage(ctx, page, category, "")
 	case sourceDSD:
 		items, result.HasMore, err = d.fetchDSDCatalogPage(ctx, page, category, "")
 	case sourceSorani:
@@ -684,7 +655,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	if err != nil && len(items) == 0 {
 		return result, err
 	}
-	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan {
+	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
@@ -720,8 +691,6 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 		raw, chapters, err = engine.downloader.fetchLegacyDetail(ctx, sourceID)
 	case sourceHuangju:
 		raw, chapters, err = engine.downloader.fetchHuangjuDetail(ctx, sourceID)
-	case sourceYeguo:
-		raw, chapters, err = engine.downloader.fetchYeguoDetail(ctx, sourceID)
 	case sourceDSD:
 		raw, chapters, err = engine.downloader.fetchDSDDetail(ctx, sourceID)
 	case sourceSorani:
@@ -749,16 +718,8 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 		raw := engine.downloader.hongguoCachedDrama(Drama{ID: drama.ID, Title: drama.Title, Source: source})
 		drama = mergeNativeDrama(drama, nativeNormalize(raw))
 	}
-	if source == sourceHuangdou {
-		if row, err := engine.downloader.huangdouDetail(ctx, sourceID); err == nil {
-			fresh := nativeNormalize(huangdouDramaFromMap(row))
-			if fresh.ID == drama.ID {
-				drama = mergeNativeDrama(drama, fresh)
-			}
-		}
-	}
 	drama.Source, drama.SourceID, drama.Episodes = source, sourceID, len(chapters)
-	if source == sourceHuangju || source == sourceYeguo {
+	if source == sourceHuangju {
 		drama.Episodes = max(drama.Episodes, nativeNormalize(raw).Episodes)
 	}
 	warning := ""

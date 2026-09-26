@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"strings"
 	"time"
 )
 
 func nativeNeedsExtraMetadata(drama nativeDrama) bool {
-	return drama.Source == sourceHongguo && drama.OnlineDate == "" ||
-		drama.Source == sourceHuangdou && (drama.Heat == "" || drama.VIP == nil)
+	return drama.Source == sourceHongguo && drama.OnlineDate == ""
 }
 
 func (engine *nativeEngine) nativeExtraMetadata(ctx context.Context, drama nativeDrama) (nativeDrama, error) {
@@ -36,27 +34,6 @@ func (engine *nativeEngine) nativeExtraMetadata(ctx context.Context, drama nativ
 		raw, err = parseHongguoSortDetail(body, id)
 		if err != nil {
 			return drama, err
-		}
-	case sourceHuangdou:
-		row, err := engine.downloader.huangdouDetail(ctx, id)
-		if err != nil {
-			return drama, err
-		}
-		raw = huangdouDramaFromMap(row)
-		if raw.Heat == "" && drama.Heat == "" {
-			var decoded any
-			err = newHuangdouAPIClient(engine.downloader).call(ctx, "/drama/list", map[string]any{
-				"keywords": firstNonEmpty(raw.Title, drama.Title), "page": "1", "page_size": "50",
-			}, &decoded)
-			if err != nil {
-				return drama, err
-			}
-			for _, candidate := range huangdouList(decoded) {
-				if strings.TrimPrefix(mapString(candidate, "id", "drama_id"), "rp_") == id {
-					raw = mergeDramaMetadata(huangdouDramaFromMap(candidate), raw)
-					break
-				}
-			}
 		}
 	}
 	if raw.ID == drama.ID {

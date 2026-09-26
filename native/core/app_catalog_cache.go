@@ -78,9 +78,6 @@ func (engine *nativeEngine) loadCatalogCache() {
 }
 
 func migrateNativeDrama(drama nativeDrama) nativeDrama {
-	if drama.MetadataSchema == 0 && drama.Source == sourceHuangdou && drama.VIP != nil && !*drama.VIP {
-		drama.VIP = nil
-	}
 	drama.MetadataSchema = 1
 	return drama
 }

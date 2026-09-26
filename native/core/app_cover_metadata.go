@@ -30,21 +30,8 @@ func (d *Downloader) nativeCoverAddress(ctx context.Context, drama nativeDrama) 
 			return "", errors.New("红果详情与请求剧集不符")
 		}
 		return hongguoCoverAddress(mapString(row, "series_cover", "cover")), nil
-	case sourceHuangdou:
-		row, err := d.huangdouDetail(ctx, id)
-		if err != nil {
-			return "", err
-		}
-		fresh := nativeNormalize(huangdouDramaFromMap(row))
-		if fresh.ID != drama.ID {
-			return "", errors.New("黄豆详情与请求剧集不符")
-		}
-		return fresh.Cover, nil
 	case sourceHuangju:
 		fresh, _, err := d.fetchHuangjuDetail(ctx, id)
-		return nativeNormalize(fresh).Cover, err
-	case sourceYeguo:
-		fresh, _, err := d.fetchYeguoDetail(ctx, id)
 		return nativeNormalize(fresh).Cover, err
 	case sourceDSD:
 		fresh, _, err := d.fetchDSDDetail(ctx, id)

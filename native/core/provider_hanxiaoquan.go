@@ -232,81 +232,111 @@ func hanxiaoquanInfoFields(body string) map[string]string {
 }
 
 // hanxiaoquanPickPlaylist 解析全部线路，返回分集最多的那条线的线路名与分集。
+//
+// 不依赖播放列表容器的 HTML 结构（不同剧模板可能不同）：直接从整页提取所有
+// 分集锚点，按播放 URL 里的线路号 `{dramaId}-{line}-{ep}` 分组，天然避免把
+// 多条线路的同一集混进一条线（否则会显示 1,1,2,2… 的重复集数）。
 func hanxiaoquanPickPlaylist(body string) (string, []Chapter, error) {
 	lineNames := map[string]string{}
 	for _, tab := range reHanxiaoquanLineTab.FindAllStringSubmatch(body, -1) {
 		lineNames[tab[1]] = strings.TrimSpace(tab[2])
 	}
-	lineIDs := make([]string, 0, len(lineNames))
-	for id := range lineNames {
-		lineIDs = append(lineIDs, id)
+
+	// line -> 分集（保持页面顺序，随后按集号去重排序）
+	type epEntry struct {
+		title string
+		url   string
+		order int
 	}
-	sort.Strings(lineIDs)
-	if len(lineIDs) == 0 {
-		// 无 tab 时兜底：直接扫描页面内所有分集链接。
-		lineIDs = []string{""}
-	}
-	bestName := ""
-	var best []Chapter
-	for _, lineID := range lineIDs {
-		segment := body
-		if lineID != "" {
-			marker := `id="playlist` + lineID + `"`
-			start := strings.Index(body, marker)
-			if start < 0 {
-				continue
-			}
-			// 从本容器标记之后开始找下一个 playlist 容器或列表结束标记，
-			// 避免匹配到容器自身导致截断失败（进而把后续线路的分集一并算入）。
-			segment = body[start+len(marker):]
-			if end := strings.Index(segment, `id="playlist`); end >= 0 {
-				segment = segment[:end]
-			} else if end := strings.Index(segment, `class="module-footer"`); end >= 0 {
-				segment = segment[:end]
+	groups := map[string][]epEntry{}
+	for _, ep := range reHanxiaoquanEpisodes.FindAllStringSubmatch(body, -1) {
+		title := hanxiaoquanClean(ep[1])
+		playURL := hanxiaoquanPlayURL(ep[2])
+		if playURL == "" {
+			continue
+		}
+		line := hanxiaoquanPlayLine(playURL)
+		order := 0
+		if num := reHanxiaoquanLeadNum.FindString(title); num != "" {
+			if parsed, err := strconv.Atoi(num); err == nil && parsed > 0 && parsed <= 100000 {
+				order = parsed
 			}
 		}
-		var chapters []Chapter
-		seenPath := map[string]bool{}
-		for index, ep := range reHanxiaoquanEpisodes.FindAllStringSubmatch(segment, -1) {
-			epTitle := hanxiaoquanClean(ep[1])
-			playURL := hanxiaoquanPlayURL(ep[2])
-			if playURL == "" || seenPath[playURL] {
-				continue
-			}
-			seenPath[playURL] = true
-			order := index + 1
-			if num := reHanxiaoquanLeadNum.FindString(epTitle); num != "" {
-				if parsed, err := strconv.Atoi(num); err == nil && parsed > 0 && parsed <= 100000 {
-					order = parsed
-				}
-			}
-			if epTitle == "" {
-				epTitle = fmt.Sprintf("第 %d 集", order)
-			}
-			chapters = append(chapters, Chapter{
-				ID:             providerChapterID(sourceHanxiaoquan, "", playURL),
-				Source:         sourceHanxiaoquan,
-				Title:          truncate(epTitle, 128),
-				CurrentEpisode: rawEpisode(order),
-				VideoURL:       "hanxiaoquan-play://" + playURL,
-				PageURL:        playURL,
-				Referer:        hanxiaoquanSiteBaseURL + "/",
-			})
+		if order == 0 {
+			order = len(groups[line]) + 1
 		}
-		if len(chapters) > len(best) {
-			best = chapters
-			bestName = lineNames[lineID]
-		}
+		groups[line] = append(groups[line], epEntry{title: title, url: playURL, order: order})
 	}
-	if len(best) == 0 {
+	if len(groups) == 0 {
 		return "", nil, errors.New("韩小圈暂无可播放分集")
 	}
-	sort.SliceStable(best, func(i, j int) bool {
-		left, _ := strconv.Atoi(best[i].EpisodeString(i + 1))
-		right, _ := strconv.Atoi(best[j].EpisodeString(j + 1))
+
+	// 选集数最多的一条线路
+	bestLine, bestCount := "", -1
+	for line, eps := range groups {
+		if len(eps) > bestCount {
+			bestLine, bestCount = line, len(eps)
+		}
+	}
+	entries := groups[bestLine]
+
+	chapters := make([]Chapter, 0, len(entries))
+	seenURL := map[string]bool{}
+	for _, ep := range entries {
+		if seenURL[ep.url] {
+			continue
+		}
+		seenURL[ep.url] = true
+		title := ep.title
+		if title == "" {
+			title = fmt.Sprintf("第 %d 集", ep.order)
+		}
+		chapters = append(chapters, Chapter{
+			ID:             providerChapterID(sourceHanxiaoquan, "", ep.url),
+			Source:         sourceHanxiaoquan,
+			Title:          truncate(title, 128),
+			CurrentEpisode: rawEpisode(ep.order),
+			VideoURL:       "hanxiaoquan-play://" + ep.url,
+			PageURL:        ep.url,
+			Referer:        hanxiaoquanSiteBaseURL + "/",
+		})
+	}
+	sort.SliceStable(chapters, func(i, j int) bool {
+		left, _ := strconv.Atoi(chapters[i].EpisodeString(i + 1))
+		right, _ := strconv.Atoi(chapters[j].EpisodeString(j + 1))
+		if left == right {
+			return chapters[i].ID < chapters[j].ID
+		}
 		return left < right
 	})
-	return bestName, best, nil
+	bestName := lineNames[bestLine]
+	if bestName == "" {
+		// tab 号与播放 URL 的线路号不一定一致：多线路时用序号，单线路时用唯一 tab 名。
+		if len(lineNames) == 1 {
+			for _, n := range lineNames {
+				bestName = n
+			}
+		}
+		if bestName == "" {
+			bestName = "线路" + bestLine
+		}
+	}
+	return bestName, chapters, nil
+}
+
+// hanxiaoquanPlayLine 从播放 URL 提取线路号（`{dramaId}-{line}-{ep}` 中的 line）。
+func hanxiaoquanPlayLine(playURL string) string {
+	parsed, err := url.Parse(playURL)
+	if err != nil {
+		return ""
+	}
+	base := strings.TrimSuffix(strings.ToLower(parsed.Path), ".html")
+	base = strings.TrimPrefix(base, "/play/")
+	parts := strings.Split(base, "-")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
 }
 
 // hanxiaoquanPlayURL 归一化播放锚点并校验同源。
