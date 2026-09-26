@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -244,6 +245,17 @@ func (d *Downloader) fetchScDetail(ctx context.Context, sourceID string) (Drama,
 	return drama, chapters, nil
 }
 
+// scEdges 是 master 播放列表的候选边缘主机（.org 为主线路，实测有效）。
+var scEdges = []string{
+	"edge-hls.doppiocdn.org",
+	"edge-hls.doppiocdn.media",
+	"edge-hls.growcdnssedge.com",
+	"edge-hls.sacfedge.com",
+}
+
+// scKey 是解密分片 URL 的固定密钥（Base64）。
+const scKey = "YzWScuyQRGAGcxx1KIJmiQ7BY9Vi35ftwLqUOVO8uoo="
+
 func (d *Downloader) resolveScMedia(ctx context.Context, task Task) (providerMedia, error) {
 	source, sourceID, valid := splitProviderDramaID(task.DramaID)
 	prefix := providerChapterID(sourceStripchat, sourceID, "")
@@ -255,22 +267,119 @@ func (d *Downloader) resolveScMedia(ctx context.Context, task Task) (providerMed
 		return providerMedia{}, errors.New("StripChat 房间 ID 无效")
 	}
 	host := scHosts[0]
-	// master 播放列表 + PSCH 密钥池
-	masterURL := fmt.Sprintf("https://edge-hls.doppiocdn.media/hls/%s/master/%s_auto.m3u8?playlistType=standard", uid, uid)
 	pageContext := context.WithValue(ctx, providerTextUserAgentKey{}, scUserAgent)
-	master, err := d.fetchProviderText(pageContext, masterURL, host+"/")
+	for _, edge := range scEdges {
+		masterURL := fmt.Sprintf("https://%s/hls/%s/master/%s_auto.m3u8?playlistType=standard", edge, uid, uid)
+		master, err := d.fetchProviderText(pageContext, masterURL, host+"/")
+		if err != nil || !strings.Contains(master, "#EXTM3U") {
+			continue
+		}
+		pkey := scPickPkey(master)
+		variants := scAllVariants(master)
+		for _, variant := range variants {
+			address := scWithAuth(variant, pkey)
+			body, err := d.fetchProviderText(pageContext, address, host+"/")
+			if err != nil || !strings.Contains(body, "#EXTM3U") || scIsAdvert(body) {
+				continue
+			}
+			// 直播流需实时代理：不设静态 Playlist，改用回调在每次拉取
+			// variant 时解密分片 URL（把 media.mp4 占位替换成真实地址）。
+			return providerMedia{URL: address, RewritePlaylist: scDecryptPlaylist, Referer: host + "/"}, nil
+		}
+	}
+	return providerMedia{}, errors.New("StripChat 该房间暂无可播放的直播流，可能未开播或已下播")
+}
+
+// scIsAdvert 判断是否为 pkey 失效时返回的广告占位列表（无 MOUFLON:URI 行）。
+func scIsAdvert(body string) bool {
+	if !strings.Contains(body, "#EXTM3U") {
+		return true
+	}
+	return !strings.Contains(body, "#EXT-X-MOUFLON:URI:")
+}
+
+// scDecryptPlaylist 逐行处理 variant：把每个分片的占位 media.mp4 替换成
+// 由 #EXT-X-MOUFLON:URI 行解密得到的真实地址，并移除该辅助行。
+func scDecryptPlaylist(body string) string {
+	lines := strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "#EXT-X-MOUFLON:URI:") {
+			mouflon := strings.TrimSpace(strings.TrimPrefix(line, "#EXT-X-MOUFLON:URI:"))
+			if i+1 < len(lines) && strings.Contains(lines[i+1], "media.mp4") {
+				if real, ok := scDecryptSegment(mouflon); ok {
+					lines[i+1] = real
+				}
+			}
+			// 跳过该辅助行本身，避免播放器遇到未知标签。
+			continue
+		}
+		out = append(out, lines[i])
+	}
+	return strings.Join(out, "\n")
+}
+
+// scDecryptSegment 从 MOUFLON URL 还原真实分片地址。
+// 加密段 = URL 去掉 .mp4 后缀后按 "_" 取倒数第二段；解密输入为该段反转，
+// 结果替换回原 URL。
+func scDecryptSegment(mouflon string) (string, bool) {
+	core := scMouflonTail.ReplaceAllString(mouflon, "")
+	parts := strings.Split(core, "_")
+	if len(parts) < 2 {
+		return "", false
+	}
+	encrypted := parts[len(parts)-2]
+	if encrypted == "" {
+		return "", false
+	}
+	decoded, ok := scDecode(encrypted)
+	if !ok {
+		return "", false
+	}
+	return strings.Replace(mouflon, encrypted, decoded, 1), true
+}
+
+var scMouflonTail = regexp.MustCompile(`(_part\d+)?\.mp4$`)
+
+// scDecode 复刻上游解密：Base64 解码加密段的反转，再与固定密钥逐字节异或。
+func scDecode(encrypted string) (string, bool) {
+	reversed := reverseString(encrypted)
+	if pad := (4 - len(reversed)%4) % 4; pad > 0 {
+		reversed += strings.Repeat("=", pad)
+	}
+	key, err := base64.StdEncoding.DecodeString(scKey)
+	if err != nil || len(key) == 0 {
+		return "", false
+	}
+	data, err := base64.StdEncoding.DecodeString(reversed)
 	if err != nil {
-		return providerMedia{}, err
+		return "", false
 	}
-	pkey := scPickPkey(master)
-	variant := scFirstVariant(master)
-	if variant == "" {
-		return providerMedia{}, errors.New("StripChat 未返回可用播放线路")
+	out := make([]byte, len(data))
+	for i := range data {
+		out[i] = data[i] ^ key[i%len(key)]
 	}
-	address := scWithAuth(variant, pkey)
-	media := providerMedia{URL: address, Referer: host + "/"}
-	// variant 需带 pkey 才能取到分片，交给播放器直接请求；不再预取列表（避免 pkey 过期）。
-	return media, nil
+	return string(out), true
+}
+
+func reverseString(s string) string {
+	b := []byte(s)
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+	return string(b)
+}
+
+// scAllVariants 从 master 提取所有 variant 播放列表地址。
+func scAllVariants(master string) []string {
+	var out []string
+	for _, m := range reScStreamIn.FindAllStringSubmatch(master, -1) {
+		if v := strings.TrimSpace(m[1]); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 func scPickPkey(master string) string {
@@ -279,16 +388,6 @@ func scPickPkey(master string) string {
 		return "Fq6m2TO2ZeBkRPm9"
 	}
 	return keys[0][1]
-}
-
-func scFirstVariant(master string) string {
-	if m := reScStreamIn.FindStringSubmatch(master); len(m) > 1 {
-		return strings.TrimSpace(m[1])
-	}
-	if m := reScVariant.FindStringSubmatch(master); len(m) > 1 {
-		return strings.TrimSpace(m[1])
-	}
-	return ""
 }
 
 // scWithAuth 去掉旧鉴权参数，再拼上 psch/pkey/preferredVideoCodec。

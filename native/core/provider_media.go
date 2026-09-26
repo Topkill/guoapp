@@ -9,15 +9,16 @@ import (
 )
 
 type providerMedia struct {
-	credentials *providerMediaCredentials
-	URL         string
-	Referer     string
-	Duration    time.Duration
-	Playlist    string
-	HLSKey      []byte
-	CENCKey     []byte
-	Quality     int
-	Variants    []providerMedia
+	credentials     *providerMediaCredentials
+	URL             string
+	Referer         string
+	Duration        time.Duration
+	Playlist        string
+	RewritePlaylist func(string) string
+	HLSKey          []byte
+	CENCKey         []byte
+	Quality         int
+	Variants        []providerMedia
 }
 
 func (d *Downloader) providerBaseURL(source string) string {

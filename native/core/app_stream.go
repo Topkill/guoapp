@@ -28,14 +28,15 @@ type nativeStreamAsset struct {
 }
 
 type nativeStreamSession struct {
-	credentials *providerMediaCredentials
-	mu          sync.Mutex
-	assets      map[string]nativeStreamAsset
-	referer     string
-	key         []byte
-	ctx         context.Context
-	cancel      context.CancelFunc
-	lastUsed    time.Time
+	credentials     *providerMediaCredentials
+	mu              sync.Mutex
+	assets          map[string]nativeStreamAsset
+	referer         string
+	key             []byte
+	ctx             context.Context
+	cancel          context.CancelFunc
+	lastUsed        time.Time
+	rewritePlaylist func(string) string
 }
 
 type nativeStreamServer struct {
@@ -73,7 +74,7 @@ func (stream *nativeStreamServer) nativeOpen(media providerMedia) (string, strin
 	}
 	token := hex.EncodeToString(tokenBytes)
 	ctx, cancel := context.WithCancel(providerMediaContext(context.Background(), media.credentials))
-	session := &nativeStreamSession{assets: map[string]nativeStreamAsset{}, referer: media.Referer, key: media.HLSKey, ctx: ctx, cancel: cancel, lastUsed: time.Now(), credentials: media.credentials}
+	session := &nativeStreamSession{assets: map[string]nativeStreamAsset{}, referer: media.Referer, key: media.HLSKey, ctx: ctx, cancel: cancel, lastUsed: time.Now(), credentials: media.credentials, rewritePlaylist: media.RewritePlaylist}
 	stream.mu.Lock()
 	for id, old := range stream.sessions {
 		if time.Since(old.lastUsed) > 10*time.Minute {
@@ -140,6 +141,11 @@ func (stream *nativeStreamServer) nativeAsset(token string, session *nativeStrea
 }
 
 func (stream *nativeStreamServer) nativeRewrite(token string, session *nativeStreamSession, body, base string) (string, error) {
+	if session.rewritePlaylist != nil {
+		if rewritten := session.rewritePlaylist(body); rewritten != "" {
+			body = rewritten
+		}
+	}
 	var output []string
 	nextPlaylist := false
 	for _, line := range strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n") {
