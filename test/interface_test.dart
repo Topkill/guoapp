@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:duanju_app/app_theme.dart';
-import 'package:duanju_app/app_build.dart';
 import 'package:duanju_app/core_bridge.dart';
 import 'package:duanju_app/downloads_screen.dart';
 import 'package:duanju_app/local_store.dart';
