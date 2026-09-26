@@ -13,7 +13,8 @@ class SourceSite {
       id == 'dsd' ||
       id == 'sorani' ||
       id == 'guipian' ||
-      id == 'hanxiaoquan';
+      id == 'hanxiaoquan' ||
+      id == 'crj91';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -36,6 +37,7 @@ class SourceSite {
     '韩小圈',
     '韩剧 · 韩国电影 · 综艺动漫',
   );
+  static const crj91 = SourceSite('crj91', '91短剧', '成人短剧 · 漫剧 · 真人剧');
 
   /// 默认可见的站源：红果、韩小圈、鬼片网、青空次元。
   static const primaryValues = [hongguo, hanxiaoquan, guipian, sorani];
@@ -44,6 +46,7 @@ class SourceSite {
   static const restrictedValues = [
     SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
     dsd,
+    crj91,
     SourceSite('huangguo-video', '黄果视频', '视频剧集'),
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
     SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),

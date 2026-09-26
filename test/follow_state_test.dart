@@ -133,8 +133,8 @@ void main() {
       expect(restarted.following(seasonOne.id)!.newSeasons, 0);
       await restarted.refreshDramas([
         const Drama(
-          id: 'huangdou:season-three',
-          source: 'huangdou',
+          id: 'dsd:season-three',
+          source: 'dsd',
           title: '合成系列 第三季',
         ),
       ]);

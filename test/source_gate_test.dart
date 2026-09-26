@@ -30,7 +30,7 @@ void main() {
           ? ['hongguo', 'hanxiaoquan', 'guipian', 'sorani']
           : ['hongguo'],
     );
-    expect(store.allowsSource('huangdou'), isFalse);
+    expect(store.allowsSource('dsd'), isFalse);
     expect(store.allowsSource('hongguo'), isTrue);
     // 未启用密码锁时无处输入密码，需要先在弹窗里启用。
     await expectLater(store.unlockSources('666'), throwsStateError);
@@ -42,12 +42,12 @@ void main() {
     await store.enableSourceGate('666');
     expect(store.sourceGateEnabled, isTrue);
     expect(store.sourcesUnlocked, isTrue);
-    expect(store.sources.length, allSourcesEnabled ? 11 : 1);
+    expect(store.sources.length, allSourcesEnabled ? 10 : 1);
 
     store.lockSources();
     expect(store.sourcesUnlocked, isFalse);
     expect(store.sources.length, allSourcesEnabled ? 4 : 1);
-    expect(store.allowsSource('huangdou'), isFalse);
+    expect(store.allowsSource('dsd'), isFalse);
     expect(store.allowsSource('hongguo'), isTrue);
     if (allSourcesEnabled) expect(store.allowsSource('sorani'), isTrue);
 
@@ -55,7 +55,7 @@ void main() {
     expect(store.sourcesUnlocked, isFalse);
     await store.unlockSources('666');
     expect(store.sourcesUnlocked, isTrue);
-    expect(store.sources.length, allSourcesEnabled ? 11 : 1);
+    expect(store.sources.length, allSourcesEnabled ? 10 : 1);
   });
 
   test('a saved gate hides sources again after restart', () async {
@@ -78,7 +78,7 @@ void main() {
     await store.disableSourceGate();
     expect(store.sourceGateEnabled, isFalse);
     expect(store.sourcesUnlocked, isTrue);
-    expect(store.sources.length, allSourcesEnabled ? 11 : 1);
+    expect(store.sources.length, allSourcesEnabled ? 10 : 1);
   });
 
   test('an invalid pin must be 3 to 12 digits', () async {
@@ -130,7 +130,7 @@ void main() {
     });
     expect(store.sourceGateEnabled, isFalse);
     expect(store.sourcesUnlocked, isTrue);
-    expect(store.sources.length, allSourcesEnabled ? 11 : 1);
+    expect(store.sources.length, allSourcesEnabled ? 10 : 1);
   });
 
   // 密码锁弹窗含动画与异步回调，用固定步进代替 pumpAndSettle，

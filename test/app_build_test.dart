@@ -15,7 +15,7 @@ void main() {
   const other = FixtureRepository.vip;
 
   test('edition sources include DSD only in the all-source build', () async {
-    SharedPreferences.setMockInitialValues({'source': 'huangdou'});
+    SharedPreferences.setMockInitialValues({'source': 'dsd'});
     final store = testStore(await SharedPreferences.getInstance());
     expect(appSlug, allSourcesEnabled ? 'zhenguojian' : 'hongguojian');
     // 默认只显示红果、韩小圈、鬼片网与青空次元，其余站源需要密码解锁。
@@ -31,7 +31,7 @@ void main() {
     expect(store.source, 'hongguo');
     await store.enableSourceGate('666666');
     expect(store.sourcesUnlocked, isTrue);
-    expect(store.sources.length, allSourcesEnabled ? 11 : 1);
+    expect(store.sources.length, allSourcesEnabled ? 10 : 1);
     expect(store.allowsSource('dsd'), allSourcesEnabled);
     store.dispose();
   });
@@ -50,7 +50,7 @@ void main() {
           ).toJson(),
       ];
       SharedPreferences.setMockInitialValues({
-        'source': 'huangdou',
+        'source': 'dsd',
         'favorites': jsonEncode([red.toJson(), other.toJson()]),
         'history': jsonEncode(history),
       });
@@ -70,7 +70,7 @@ void main() {
       ]);
       expect(library['history'], hasLength(2));
       await store.importBackup(backup);
-      expect(store.preferences.getString('source'), 'huangdou');
+      expect(store.preferences.getString('source'), 'dsd');
       expect(store.history, hasLength(allSourcesEnabled ? 2 : 1));
       expect(store.favorites.map((drama) => drama.id), [other.id]);
       store.dispose();
@@ -93,22 +93,22 @@ void main() {
           const LocalProfile(
             id: 'viewer',
             name: '已有用户',
-            sources: ['huangdou'],
+            sources: ['dsd'],
             download: false,
           ).toJson(),
         ]),
         'activeProfile': 'viewer',
-        'profile.viewer.source': 'huangdou',
+        'profile.viewer.source': 'dsd',
       });
       final store = testStore(await SharedPreferences.getInstance());
       await unlockGate(store);
       expect(store.profile.id, 'viewer');
       expect(store.profile.admin, isFalse);
-      expect(store.profile.sources, ['huangdou']);
+      expect(store.profile.sources, ['dsd']);
       expect(store.canDownload, isFalse);
-      expect(store.source, allSourcesEnabled ? 'huangdou' : '');
+      expect(store.source, allSourcesEnabled ? 'dsd' : '');
       expect(store.allowsSource('hongguo'), isFalse);
-      expect(store.allowsSource('huangdou'), allSourcesEnabled);
+      expect(store.allowsSource('dsd'), allSourcesEnabled);
       store.dispose();
     },
   );

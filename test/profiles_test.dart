@@ -14,7 +14,7 @@ import 'fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const drama = Drama(id: 'hongguo:1', source: 'hongguo', title: '合成短剧');
-  const denied = Drama(id: 'huangdou:2', source: 'huangdou', title: '受限合成短剧');
+  const denied = Drama(id: 'dsd:2', source: 'dsd', title: '受限合成短剧');
 
   test(
     'profiles require an admin password, isolate records and lock on restart',
@@ -141,8 +141,8 @@ void main() {
       final repository = NativeRepository()..access = store;
       expect(repository.supportsDownloads, isFalse);
       for (final request in [
-        () => repository.catalog('huangdou'),
-        () => repository.cached('huangdou'),
+        () => repository.catalog('dsd'),
+        () => repository.cached('dsd'),
         () => repository.detail(denied),
         () => repository.cover(denied),
         () => repository.resolve(denied, Episode({'id': '1'}, 1)),

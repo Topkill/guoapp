@@ -46,8 +46,8 @@ class FixtureRepository extends AppRepository {
     category: '合成数据',
   );
   static const vip = Drama(
-    id: 'huangdou:200',
-    source: 'huangdou',
+    id: 'dsd:200',
+    source: 'dsd',
     title: '会员测试剧',
     episodes: 4,
     vip: true,

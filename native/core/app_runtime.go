@@ -32,6 +32,7 @@ type Config struct {
 	SoraniAPIURL     string
 	GuipianURL       string
 	HanxiaoquanURL   string
+	Crj91URL         string
 	Token            string
 	AESKeyHex        string
 	InterfaceKey     string
@@ -564,6 +565,17 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		result.HasMore = more
 		return result, nil
 	}
+	if query != "" && source == source91crj {
+		items, more, err := d.fetchCrjCatalogPage(ctx, page, "", query)
+		if err != nil {
+			return result, err
+		}
+		for _, drama := range items {
+			result.Items = append(result.Items, nativeNormalize(drama))
+		}
+		result.HasMore = more
+		return result, nil
+	}
 	if query != "" && source == sourceDSD {
 		items, more, err := d.fetchDSDCatalogPage(ctx, page, "", query)
 		if err != nil {
@@ -638,6 +650,8 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		items, result.HasMore, err = d.fetchGuipianCatalogPage(ctx, page, category, "")
 	case sourceHanxiaoquan:
 		items, result.HasMore, err = d.fetchHanxiaoquanCatalogPage(ctx, page, category, "")
+	case source91crj:
+		items, result.HasMore, err = d.fetchCrjCatalogPage(ctx, page, category, "")
 	case sourceHuangguoVideo:
 		address := fmt.Sprintf("%s/videos?page=%d", d.providerBaseURL(source), page)
 		if category != "" {
@@ -655,7 +669,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	if err != nil && len(items) == 0 {
 		return result, err
 	}
-	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan {
+	if len(items) == 0 && page == 1 && source != sourceHuangju && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan && source != source91crj {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
@@ -699,6 +713,8 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 		raw, chapters, err = engine.downloader.fetchGuipianDetail(ctx, sourceID)
 	case sourceHanxiaoquan:
 		raw, chapters, err = engine.downloader.fetchHanxiaoquanDetail(ctx, sourceID)
+	case source91crj:
+		raw, chapters, err = engine.downloader.fetchCrjDetail(ctx, sourceID)
 	default:
 		title, chapters, err = engine.downloader.GetHuangguoChapters(ctx, source, sourceID)
 	}
