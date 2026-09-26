@@ -70,12 +70,19 @@ func (d *Downloader) fetchScCategories() []nativeCategory {
 	return append([]nativeCategory(nil), scCategories...)
 }
 
+// scContext 给 StripChat 请求附加 UA 与 Origin（部分 CDN 需要 Origin 才返回真实流）。
+func scContext(ctx context.Context) context.Context {
+	ctx = context.WithValue(ctx, providerTextUserAgentKey{}, scUserAgent)
+	ctx = context.WithValue(ctx, providerTextOriginKey{}, scHosts[0])
+	return ctx
+}
+
 // scGetJSON 逐个域名尝试请求 JSON（列表/详情）。
 func (d *Downloader) scGetJSON(ctx context.Context, path string) (map[string]any, error) {
 	var lastErr error
 	for _, host := range scHosts {
 		address := strings.TrimRight(host, "/") + path
-		pageContext := context.WithValue(ctx, providerTextUserAgentKey{}, scUserAgent)
+		pageContext := scContext(ctx)
 		body, err := d.fetchProviderText(pageContext, address, host+"/")
 		if err != nil {
 			lastErr = err
@@ -267,27 +274,68 @@ func (d *Downloader) resolveScMedia(ctx context.Context, task Task) (providerMed
 		return providerMedia{}, errors.New("StripChat 房间 ID 无效")
 	}
 	host := scHosts[0]
-	pageContext := context.WithValue(ctx, providerTextUserAgentKey{}, scUserAgent)
+	pageContext := scContext(ctx)
+	// 逐个 edge、逐个 pkey（内置 key 优先）、逐个 variant 尝试，
+	// 直到取到含真实分片行的播放列表（pkey 失效时 CDN 返回占位列表）。
+	var diag []string
 	for _, edge := range scEdges {
 		masterURL := fmt.Sprintf("https://%s/hls/%s/master/%s_auto.m3u8?playlistType=standard", edge, uid, uid)
 		master, err := d.fetchProviderText(pageContext, masterURL, host+"/")
-		if err != nil || !strings.Contains(master, "#EXTM3U") {
+		if err != nil {
+			diag = append(diag, edge+":master错误")
 			continue
 		}
-		pkey := scPickPkey(master)
-		variants := scAllVariants(master)
-		for _, variant := range variants {
-			address := scWithAuth(variant, pkey)
-			body, err := d.fetchProviderText(pageContext, address, host+"/")
-			if err != nil || !strings.Contains(body, "#EXTM3U") || scIsAdvert(body) {
-				continue
-			}
-			// 直播流需实时代理：不设静态 Playlist，改用回调在每次拉取
-			// variant 时解密分片 URL（把 media.mp4 占位替换成真实地址）。
-			return providerMedia{URL: address, RewritePlaylist: scDecryptPlaylist, Referer: host + "/"}, nil
+		if !strings.Contains(master, "#EXTM3U") {
+			diag = append(diag, edge+":master无效")
+			continue
 		}
+		variants := scAllVariants(master)
+		if len(variants) == 0 {
+			diag = append(diag, edge+":无variant")
+			continue
+		}
+		pkeys := scPkeys(master)
+		for _, pkey := range pkeys {
+			for _, variant := range variants {
+				address := scWithAuth(variant, pkey)
+				body, err := d.fetchProviderText(pageContext, address, host+"/")
+				if err != nil {
+					continue
+				}
+				if !strings.Contains(body, "#EXTM3U") {
+					continue
+				}
+				if scIsAdvert(body) {
+					continue
+				}
+				// 直播流需实时代理：不设静态 Playlist，改用回调在每次拉取
+				// variant 时解密分片 URL（把 media.mp4 占位替换成真实地址）。
+				return providerMedia{URL: address, RewritePlaylist: scDecryptPlaylist, Referer: host + "/"}, nil
+			}
+		}
+		diag = append(diag, fmt.Sprintf("%s:占位(pkey×%d,var×%d)", edge, len(pkeys), len(variants)))
+	}
+	if len(diag) > 0 {
+		return providerMedia{}, fmt.Errorf("StripChat 暂无可播放直播流（%s）", strings.Join(diag, "；"))
 	}
 	return providerMedia{}, errors.New("StripChat 该房间暂无可播放的直播流，可能未开播或已下播")
+}
+
+// scPkeys 返回候选 pkey 列表：内置 key 优先，其后是 master 池中其余 key。
+func scPkeys(master string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, 8)
+	add := func(k string) {
+		if k != "" && !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	add(scBuiltinPkey)
+	for _, m := range reScPSCH.FindAllStringSubmatch(master, -1) {
+		add(m[1])
+	}
+	return out
 }
 
 // scIsAdvert 判断是否为 pkey 失效时返回的广告占位列表（无 MOUFLON:URI 行）。
@@ -382,13 +430,8 @@ func scAllVariants(master string) []string {
 	return out
 }
 
-func scPickPkey(master string) string {
-	keys := reScPSCH.FindAllStringSubmatch(master, -1)
-	if len(keys) == 0 {
-		return "Fq6m2TO2ZeBkRPm9"
-	}
-	return keys[0][1]
-}
+// scBuiltinPkey 是上游内置的首选 pkey（在池中时优先复用）。
+const scBuiltinPkey = "Fq6m2TO2ZeBkRPm9"
 
 // scWithAuth 去掉旧鉴权参数，再拼上 psch/pkey/preferredVideoCodec。
 func scWithAuth(variant, pkey string) string {
