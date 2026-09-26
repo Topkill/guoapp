@@ -69,6 +69,8 @@ func validNativeCategory(source, category string) bool {
 		return validHanxiaoquanCategory(category)
 	case source91crj:
 		return validCrjCategory(category)
+	case sourceStripchat:
+		return validScCategory(category)
 	}
 	return false
 }
@@ -129,6 +131,8 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		all = append(all, d.fetchHanxiaoquanCategories()...)
 	case source91crj:
 		all = append(all, d.fetchCrjCategories()...)
+	case sourceStripchat:
+		all = append(all, d.fetchScCategories()...)
 	default:
 		return nil, errors.New("请选择有效站源")
 	}

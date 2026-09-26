@@ -42,6 +42,8 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.HanxiaoquanURL, hanxiaoquanSiteBaseURL
 	case source91crj:
 		configured, fallback = d.cfg.Crj91URL, crjSiteBaseURL
+	case sourceStripchat:
+		configured, fallback = d.cfg.StripchatURL, scHosts[0]
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
@@ -73,6 +75,8 @@ func providerSourceForURL(raw string) string {
 		return sourceHanxiaoquan
 	case host == "91crdj.com" || host == "www.91crdj.com":
 		return source91crj
+	case strings.Contains(host, "stripchat") || strings.Contains(host, "stripol"):
+		return sourceStripchat
 	default:
 		return ""
 	}
@@ -133,6 +137,9 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == source91crj {
 		return d.resolveCrjMedia(ctx, task)
+	}
+	if chapter.Source == sourceStripchat {
+		return d.resolveScMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
