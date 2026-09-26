@@ -49,30 +49,42 @@ class AppDevice {
   final String version;
   static const channel = MethodChannel('duanju/device');
 
+  /// 最近一次 [detect] 的结果。供 initState 等拿不到 context 的场景读取
+  /// （例如播放器在创建时决定是否启用硬件解码）。
+  static AppDevice latest = const AppDevice();
+
   static Future<AppDevice> detect({
     AppDevice fallback = const AppDevice(),
   }) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
-      return const AppDevice();
+      latest = const AppDevice();
+      return latest;
     }
     try {
       final data = await channel
           .invokeMapMethod<String, dynamic>('deviceInfo')
           .timeout(const Duration(seconds: 2));
       final television = data?['television'];
-      if (television is! bool) return fallback;
+      if (television is! bool) {
+        latest = fallback;
+        return fallback;
+      }
       final version = data?['version'];
-      return AppDevice(
+      latest = AppDevice(
         television: television,
         version: version is String && version.isNotEmpty
             ? version
             : fallback.version,
       );
+      return latest;
     } on PlatformException {
+      latest = fallback;
       return fallback;
     } on MissingPluginException {
+      latest = fallback;
       return fallback;
     } on TimeoutException {
+      latest = fallback;
       return fallback;
     }
   }

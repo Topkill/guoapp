@@ -182,14 +182,19 @@ class _PlayerScreenState extends State<PlayerScreen>
         Player(
           configuration: const PlayerConfiguration(
             bufferSize: 32 * 1024 * 1024,
-            logLevel: MPVLogLevel.v,
+            // 仅输出错误级日志：verbose 在电视 / 低配设备上持续输出会拖垮
+            // 内存与 IO，是播放中数分钟后闪退的主要原因。
+            logLevel: MPVLogLevel.error,
           ),
         );
     _video = widget.videoBuilder == null
         ? VideoController(
             _player,
             configuration: VideoControllerConfiguration(
-              enableHardwareAcceleration: !Platform.isIOS,
+              // 电视 / 盒子常因 libmpv 硬件纹理上下文创建失败而在播放中闪退，
+              // 改用软件解码更稳（CPU 换稳定性）。iOS 同样禁用。
+              enableHardwareAcceleration:
+                  !Platform.isIOS && !AppDevice.latest.television,
             ),
           )
         : null;
