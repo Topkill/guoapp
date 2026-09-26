@@ -84,7 +84,6 @@ void main() {
     },
   );
 
-
   for (final layout in [
     (const Size(390, 844), 1.0, false),
     (const Size(320, 844), 2.0, false),

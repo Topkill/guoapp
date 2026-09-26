@@ -132,11 +132,7 @@ void main() {
       await restarted.refreshDramas([seasonTwo]);
       expect(restarted.following(seasonOne.id)!.newSeasons, 0);
       await restarted.refreshDramas([
-        const Drama(
-          id: 'dsd:season-three',
-          source: 'dsd',
-          title: '合成系列 第三季',
-        ),
+        const Drama(id: 'dsd:season-three', source: 'dsd', title: '合成系列 第三季'),
       ]);
       expect(restarted.following(seasonOne.id)!.seriesSeasons.keys, [
         seasonTwo.id,
